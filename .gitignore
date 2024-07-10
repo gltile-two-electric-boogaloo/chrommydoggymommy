@@ -1,0 +1,6 @@
+/target/
+/.cargo/
+**/__pycache__
+/venv/
+/programs
+/.idea/
