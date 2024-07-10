@@ -20,6 +20,8 @@ $ chrommydoggymommy -i 100 -p 1000 -c chrommy.ckpt programs/program.py
 ... progress output ...
 ⠿ programs/program.py Completed in 107507284 ms     100
 ```
+Note that the time output is the total amount of compute seconds. So, if the program ran four times for 8 ms in
+parallel, the time taken would be 32 ms.
 
 Work with checkpoint files:
 ```sh
@@ -37,3 +39,10 @@ This program makes two assumptions:
 
 If these assumptions cannot be held, undefined behaviour may arise.
 **Do not load checkpoint files from other people.**
+
+## Todo
+- [x] Produce checkpoint files
+- [ ] Incrementally update checkpoint files
+- [ ] Work with checkpoint files
+  - [ ] Merge checkpoint files
+  - [ ] Dump contents of checkpoint files to CSV files
