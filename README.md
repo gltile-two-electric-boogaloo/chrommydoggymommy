@@ -8,10 +8,23 @@ Linux only. May theoretically run on other platforms, haven't tested.
 
 ## Get started
 ```sh
-git clone https://github.com/gltile-two-electric-boogaloo/chrommydoggymommy
-cd chrommydoggymommy
-cargo install --path .
-chrommydoggymommy --help
+$ git clone https://github.com/gltile-two-electric-boogaloo/chrommydoggymommy
+$ cd chrommydoggymommy
+$ cargo install --path .
+$ chrommydoggymommy --help
+```
+
+Run a program 100 times on 1000 ports:
+```shell
+$ chrommydoggymommy -i 100 -p 1000 -c chrommy.ckpt programs/program.py
+... progress output ...
+⠿ programs/program.py Completed in 107507284 ms     100
+```
+
+Work with checkpoint files:
+```sh
+$ chrommydoggymommy checkpoint merge chrommy.ckpt chrommy2.ckpt
+$ chrommydoggymommy checkpoint dump chrommy.ckpt chrommy.csv
 ```
 
 ## Safety
