@@ -1,5 +1,4 @@
-use std::cell::OnceCell;
-use crate::{C2SMessage, JobResult, S2CMessage};
+use crate::structs::{C2SMessage, JobResult, S2CMessage};
 use anyhow::anyhow;
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use pyo3::exceptions::{PyEnvironmentError, PyTypeError};
@@ -15,9 +14,9 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, OnceLock, RwLock};
+use std::sync::Arc;
 use std::time::Instant;
-use tracing_mutex::stdsync::Mutex;
+use tracing_mutex::stdsync::{Mutex, OnceLock, RwLock};
 
 trait MessageSendExt {
     fn send<T>(&mut self, message: T) -> anyhow::Result<()>
@@ -172,21 +171,27 @@ fn run_program(program: &str, ports: usize) -> anyhow::Result<usize> {
                     *last_time.write().unwrap() = Instant::now();
 
                     let handle = job_handle.get_or_init(|| {
-                        std::io::stdout().send(C2SMessage::RequestExtraJobHandle {
-                            max: 0,
-                            task: "Running iteration...".into()
-                        }).unwrap();
-                        let S2CMessage::ExtraJobHandle {job_handle} = std::io::stdin().receive().unwrap() else {
+                        std::io::stdout()
+                            .send(C2SMessage::RequestExtraJobHandle {
+                                max: 0,
+                                task: "Running iteration...".into(),
+                            })
+                            .unwrap();
+                        let S2CMessage::ExtraJobHandle { job_handle } =
+                            std::io::stdin().receive().unwrap()
+                        else {
                             panic!("Received unexpected message from server")
                         };
-                        
+
                         job_handle
                     });
-                    
-                    std::io::stdout().send(C2SMessage::JobProgress {
-                        job_handle: *handle,
-                        iterations_completed: swaps.load(Ordering::SeqCst),
-                    }).unwrap();
+
+                    std::io::stdout()
+                        .send(C2SMessage::JobProgress {
+                            job_handle: *handle,
+                            iterations_completed: swaps.load(Ordering::SeqCst),
+                        })
+                        .unwrap();
                 }
 
                 Ok(())
@@ -287,8 +292,8 @@ pub(crate) fn main_child() -> Result<(), Box<dyn Error>> {
                         freq: freq_map,
                     },
                 })?;
-            },
-            _ => panic!("Recieved unexpected client message {message:#?}")
+            }
+            _ => panic!("Recieved unexpected client message {message:#?}"),
         }
     }
 }

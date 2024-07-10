@@ -1,14 +1,13 @@
-use std::collections::HashMap;
+use clap::Parser;
 use std::env;
 use std::error::Error;
-use rkyv::{Archive, Deserialize, Serialize};
-use clap::Parser;
 
 use crate::client::main_child;
 use crate::server::main_server;
 
 mod client;
 mod server;
+mod structs;
 
 #[derive(Parser, Debug)]
 #[command(about = "Overengineered test runner")]
@@ -25,81 +24,38 @@ struct Args {
     #[arg(short = 'p')]
     ports: usize,
 
+    /// Batching size (default: based on number of ports)
+    #[arg(short = 'b')]
+    batch_size: Option<usize>,
+
+    /// Checkpoint file
+    #[arg(short = 'c')]
+    checkpoint_file: String,
+
     /// Files to run
-    files: Vec<String>
-}
-
-
-#[derive(Archive, Deserialize, Serialize, Debug)]
-pub enum JobResult {
-    Succeeded {
-        freq: HashMap<usize, usize>,
-        time: usize,
-    },
-
-    Failed {
-        why: String,
-        time: usize
-    },
-}
-
-#[derive(Archive, Deserialize, Serialize, Debug)]
-pub enum C2SMessage {
-    // Log a message to the user's screen.
-    Log(String),
-
-    // Report progress to the server.
-    JobProgress {
-        job_handle: usize,
-        iterations_completed: usize,
-    },
-
-    // Report the result of a job to the server.
-    JobResult {
-        job_handle: usize,
-        result: JobResult,
-    },
-
-    // Request an extra job handle so clients can give more fine-grained progress bars.
-    RequestExtraJobHandle {
-        task: String,
-        max: usize,
-    },
-}
-
-#[derive(Archive, Deserialize, Serialize, Debug)]
-pub enum S2CMessage {
-    // Send a job to the client.
-    Job {
-        job_handle: usize,
-        iterations: usize,
-        ports: usize,
-        program: String,
-    },
-
-    // Response to extra job handle request.
-    ExtraJobHandle {
-        job_handle: usize,
-    },
-
-    // Tell the client to exit.
-    Finish,
+    files: Vec<String>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut arg_name: Vec<String> = env::args().collect();
     if arg_name.len() == 2 && arg_name[1].as_str() == "--run-child-process" {
-        return main_child()
+        return main_child();
     }
 
     let args = Args::parse();
     let workers = args.workers.or(Some(num_cpus::get())).unwrap();
+    let batch_size = args
+        .batch_size
+        .or(Some((1f64 / args.ports as f64 / 100f64).ceil() as usize))
+        .unwrap();
 
     Ok(main_server(
         workers,
         args.iterations,
         args.ports,
         args.files,
-        &*arg_name[0]
+        batch_size,
+        args.checkpoint_file,
+        &*arg_name[0],
     )?)
 }
