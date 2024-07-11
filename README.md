@@ -52,3 +52,4 @@ If these assumptions cannot be held, undefined behaviour may arise.
 - [ ] Work with checkpoint files
   - [x] Merge checkpoint files
   - [ ] Dump contents of checkpoint files to CSV files
+- [ ] Implement alternate runners
