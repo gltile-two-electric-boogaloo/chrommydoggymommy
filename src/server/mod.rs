@@ -1,7 +1,7 @@
 mod traits;
 
 use crate::server::traits::{AsyncMessageRecvExt, AsyncMessageSendExt};
-use crate::structs::{C2SMessage, Checkpoint, CheckpointEntry, JobResult, S2CMessage};
+use crate::structs::{C2SMessage, JobResult, S2CMessage};
 use futures_util::future::select_all;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
@@ -11,11 +11,14 @@ use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::SystemTime;
+use anyhow::bail;
 use tokio::fs::{read, write};
+use tokio::io;
 use tokio::process::{Child, Command};
 use tokio::runtime::Runtime;
 use tokio::sync::broadcast::{Receiver, Sender};
 use tokio::sync::{broadcast, Mutex, RwLock};
+use crate::checkpoint::{Checkpoint, CheckpointEntry};
 
 lazy_static! {
     static ref PROGRESS_STYLE: ProgressStyle =
@@ -98,16 +101,20 @@ async fn main_server_async(
     let mut tasks = Vec::new();
     let log = Arc::new(MultiProgress::new());
     let checkpoint: Arc<RwLock<Checkpoint>> =
-        Arc::new(RwLock::new(match read(&*checkpoint_file).await {
-            Ok(bytes) => unsafe { rkyv::archived_root::<Checkpoint>(&*bytes) }
-                .deserialize(&mut rkyv::Infallible)
-                .unwrap(),
-            Err(e) => {
-                log.println(format!("Unable to open checkpoint ({e}), making new one"))?;
-                Checkpoint {
-                    time: SystemTime::now().elapsed().unwrap().as_secs(),
-                    algorithms: HashMap::new(),
+        Arc::new(RwLock::new(match Checkpoint::read_async(checkpoint_file.clone()).await {
+            Ok(checkpoint) => checkpoint,
+            Err(e) => if let Some(e) = e.downcast_ref::<io::Error>() {
+                if e.kind() == io::ErrorKind::NotFound {
+                    log.println(format!("Checkpoint file {checkpoint_file} not found, making new one"))?;
+                    Checkpoint {
+                        time: SystemTime::now().elapsed().unwrap().as_secs(),
+                        algorithms: HashMap::new(),
+                    }
+                } else {
+                    bail!("Unable to read checkpoint file: {e}")
                 }
+            } else {
+                bail!("Unable to read checkpoint file: {e}")
             }
         }));
 
@@ -299,11 +306,7 @@ async fn job_supervisor(
         for (time, freq) in frequencies {
             *map.entry(time).or_insert(0) += freq
         }
-        write(
-            checkpoint_file,
-            rkyv::to_bytes::<_, 256>(&*checkpoint)?.as_slice(),
-        )
-        .await?;
+        checkpoint.write_async(checkpoint_file).await?;
     }
 
     Ok(())

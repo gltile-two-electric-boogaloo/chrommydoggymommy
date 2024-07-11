@@ -52,16 +52,3 @@ pub enum S2CMessage {
     Finish,
 }
 
-#[derive(Archive, Deserialize, Serialize, Debug)]
-pub struct CheckpointEntry {
-    pub name: String,
-
-    /// map of {ports: {swaps: count}}
-    pub frequency_map: HashMap<usize, HashMap<usize, usize>>,
-}
-
-#[derive(Archive, Deserialize, Serialize, Debug)]
-pub struct Checkpoint {
-    pub time: u64,
-    pub algorithms: HashMap<[u8; 32], CheckpointEntry>,
-}

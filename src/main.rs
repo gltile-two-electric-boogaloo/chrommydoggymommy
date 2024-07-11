@@ -8,6 +8,7 @@ use crate::server::main_server;
 mod client;
 mod server;
 mod structs;
+mod checkpoint;
 
 #[derive(Parser, Debug)]
 #[command(about = "Overengineered test runner")]
@@ -36,7 +37,7 @@ struct Args {
     files: Vec<String>,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> anyhow::Result<()> {
     let mut arg_name: Vec<String> = env::args().collect();
     if arg_name.len() == 2 && arg_name[1].as_str() == "--run-child-process" {
         return main_child();
@@ -49,7 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .or(Some((1f64 / args.ports as f64 / 100f64).ceil() as usize))
         .unwrap();
 
-    Ok(main_server(
+    main_server(
         workers,
         args.iterations,
         args.ports,
@@ -57,5 +58,5 @@ fn main() -> Result<(), Box<dyn Error>> {
         batch_size,
         args.checkpoint_file,
         &*arg_name[0],
-    )?)
+    )
 }

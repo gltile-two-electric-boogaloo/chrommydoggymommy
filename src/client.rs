@@ -242,7 +242,7 @@ fn run_program(program: &str, ports: usize) -> anyhow::Result<usize> {
     })
 }
 
-pub(crate) fn main_child() -> Result<(), Box<dyn Error>> {
+pub(crate) fn main_child() -> anyhow::Result<()> {
     let mut stdin = std::io::stdin();
     let mut stdout = std::io::stdout();
     pyo3::prepare_freethreaded_python();
@@ -269,7 +269,7 @@ pub(crate) fn main_child() -> Result<(), Box<dyn Error>> {
                                 job_handle,
                                 result: JobResult::Failed {
                                     time: stime.elapsed().as_millis() as usize,
-                                    why: e.backtrace().to_string(),
+                                    why: e.to_string(),
                                 },
                             })?;
 
