@@ -1,6 +1,5 @@
 use clap::{Parser, Subcommand};
 use std::env;
-use std::error::Error;
 use crate::checkpoint_cli::main_checkpoint_cli;
 use crate::client::main_child;
 use crate::server::main_server;
