@@ -1,11 +1,11 @@
+use anyhow::bail;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use rkyv::{Archive, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs as stdfs;
+use std::io::{Read, Write};
 use tokio::fs as tokfs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use std::io::{Read, Write};
-use anyhow::bail;
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 
 #[derive(Archive, Deserialize, Serialize, Debug)]
 pub struct CheckpointEntry {
@@ -18,7 +18,6 @@ pub struct CheckpointEntry {
 #[derive(Archive, Deserialize, Serialize, Debug)]
 pub struct Checkpoint {
     /// Version 1.
-
     pub time: u64,
     pub algorithms: HashMap<[u8; 32], CheckpointEntry>,
 }
@@ -31,7 +30,12 @@ impl Checkpoint {
         let mut file = stdfs::File::open(&*path)?;
         let version = file.read_u64::<BigEndian>()?;
         if version != Checkpoint::VERSION {
-            bail!("version mismatch on checkpoint file {}: expected version {}, got {}", path, Checkpoint::VERSION, version)
+            bail!(
+                "version mismatch on checkpoint file {}: expected version {}, got {}",
+                path,
+                Checkpoint::VERSION,
+                version
+            )
         }
         let mut rest = Vec::new();
         if let Ok(metadata) = file.metadata() {
@@ -39,14 +43,21 @@ impl Checkpoint {
         }
         file.read_to_end(&mut rest)?;
 
-        Ok(unsafe { rkyv::archived_root::<Checkpoint>(&rest) }.deserialize(&mut rkyv::Infallible).unwrap())
+        Ok(unsafe { rkyv::archived_root::<Checkpoint>(&rest) }
+            .deserialize(&mut rkyv::Infallible)
+            .unwrap())
     }
 
     pub async fn read_async(path: String) -> anyhow::Result<Checkpoint> {
         let mut file = tokfs::File::open(&*path).await?;
         let version = file.read_u64().await?;
         if version != Checkpoint::VERSION {
-            bail!("version mismatch on checkpoint file {}: expected version {}, got {}", path, Checkpoint::VERSION, version)
+            bail!(
+                "version mismatch on checkpoint file {}: expected version {}, got {}",
+                path,
+                Checkpoint::VERSION,
+                version
+            )
         }
         let mut rest = Vec::new();
         if let Ok(metadata) = file.metadata().await {
@@ -54,11 +65,16 @@ impl Checkpoint {
         }
         file.read_to_end(&mut rest).await?;
 
-        Ok(unsafe { rkyv::archived_root::<Checkpoint>(&rest) }.deserialize(&mut rkyv::Infallible).unwrap())
+        Ok(unsafe { rkyv::archived_root::<Checkpoint>(&rest) }
+            .deserialize(&mut rkyv::Infallible)
+            .unwrap())
     }
 
     pub fn write(&self, path: String) -> anyhow::Result<()> {
-        let mut file = stdfs::OpenOptions::new().write(true).create(true).open(path)?;
+        let mut file = stdfs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(path)?;
         file.write_u64::<BigEndian>(Checkpoint::VERSION)?;
         file.write_all(&*rkyv::to_bytes::<_, 256>(self)?)?;
 
@@ -66,7 +82,11 @@ impl Checkpoint {
     }
 
     pub async fn write_async(&self, path: String) -> anyhow::Result<()> {
-        let mut file = tokfs::OpenOptions::new().write(true).create(true).open(path).await?;
+        let mut file = tokfs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(path)
+            .await?;
         file.write_u64(Checkpoint::VERSION).await?;
         file.write_all(&*rkyv::to_bytes::<_, 256>(self)?).await?;
 

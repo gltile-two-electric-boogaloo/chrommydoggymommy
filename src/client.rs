@@ -11,7 +11,6 @@ use rand::thread_rng;
 use rkyv::ser::serializers::AllocSerializer;
 use rkyv::{Archive, Deserialize, Infallible, Serialize};
 use std::collections::HashMap;
-use std::error::Error;
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -88,7 +87,7 @@ where
 /// compile(), I'll personally punch you in the face.
 fn run_program(program: &str, ports: usize) -> anyhow::Result<usize> {
     let job_handle: OnceLock<usize> = OnceLock::new();
-    let mut last_time = Arc::new(RwLock::new(Instant::now()));
+    let last_time = Arc::new(RwLock::new(Instant::now()));
 
     Python::with_gil(|py| {
         let (current_order, current_wrong) = {
@@ -115,6 +114,12 @@ fn run_program(program: &str, ports: usize) -> anyhow::Result<usize> {
             let current_wrong = current_wrong.clone();
 
             move |args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>| -> PyResult<_> {
+                if args.len() != 0 || _kwargs.is_some() {
+                    return Err(PyErr::new::<PyTypeError, _>(
+                        "query expects no arguments",
+                    ));
+                }
+                
                 Ok(current_wrong.load(Ordering::SeqCst))
             }
         };

@@ -51,4 +51,3 @@ pub enum S2CMessage {
     /// Tell the client to exit.
     Finish,
 }
-

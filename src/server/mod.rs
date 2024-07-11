@@ -1,24 +1,23 @@
 mod traits;
 
+use crate::checkpoint::{Checkpoint, CheckpointEntry};
 use crate::server::traits::{AsyncMessageRecvExt, AsyncMessageSendExt};
 use crate::structs::{C2SMessage, JobResult, S2CMessage};
+use anyhow::bail;
 use futures_util::future::select_all;
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use lazy_static::lazy_static;
-use rkyv::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::SystemTime;
-use anyhow::bail;
-use tokio::fs::{read, write};
+use tokio::fs::read;
 use tokio::io;
 use tokio::process::{Child, Command};
 use tokio::runtime::Runtime;
 use tokio::sync::broadcast::{Receiver, Sender};
 use tokio::sync::{broadcast, Mutex, RwLock};
-use crate::checkpoint::{Checkpoint, CheckpointEntry};
 
 lazy_static! {
     static ref PROGRESS_STYLE: ProgressStyle =
@@ -102,22 +101,31 @@ async fn main_server_async(
     let log = Arc::new(MultiProgress::new());
     log.set_draw_target(ProgressDrawTarget::stdout_with_hz(5));
     let checkpoint: Arc<RwLock<Checkpoint>> =
-        Arc::new(RwLock::new(match Checkpoint::read_async(checkpoint_file.clone()).await {
-            Ok(checkpoint) => checkpoint,
-            Err(e) => if let Some(e) = e.downcast_ref::<io::Error>() {
-                if e.kind() == io::ErrorKind::NotFound {
-                    log.println(format!("Checkpoint file {checkpoint_file} not found, making new one"))?;
-                    Checkpoint {
-                        time: SystemTime::now().elapsed().unwrap().as_secs(),
-                        algorithms: HashMap::new(),
+        Arc::new(RwLock::new(
+            match Checkpoint::read_async(checkpoint_file.clone()).await {
+                Ok(checkpoint) => checkpoint,
+                Err(e) => {
+                    if let Some(e) = e.downcast_ref::<io::Error>() {
+                        if e.kind() == io::ErrorKind::NotFound {
+                            log.println(format!(
+                                "Checkpoint file {checkpoint_file} not found, making new one"
+                            ))?;
+                            Checkpoint {
+                                time: SystemTime::now()
+                                    .duration_since(SystemTime::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs(),
+                                algorithms: HashMap::new(),
+                            }
+                        } else {
+                            bail!("Unable to read checkpoint file: {e}")
+                        }
+                    } else {
+                        bail!("Unable to read checkpoint file: {e}")
                     }
-                } else {
-                    bail!("Unable to read checkpoint file: {e}")
                 }
-            } else {
-                bail!("Unable to read checkpoint file: {e}")
-            }
-        }));
+            },
+        ));
 
     let jobs = {
         let mut jobs = Vec::new();
@@ -131,15 +139,18 @@ async fn main_server_async(
                 .await
                 .algorithms
                 .get(&*digest)
-                .map(|entry| entry.frequency_map.get(&ports)
-                    .map(|freq| freq.values().sum::<usize>())
-                    .unwrap_or(0)
-                )
+                .map(|entry| {
+                    entry
+                        .frequency_map
+                        .get(&ports)
+                        .map(|freq| freq.values().sum::<usize>())
+                        .unwrap_or(0)
+                })
                 .unwrap_or(0);
 
             if already_computed >= iterations {
                 log.println(format!("Skipping {name}, checkpoint file already contains amount of iterations requested (requested {iterations}, have {already_computed})"))?;
-                continue
+                continue;
             }
 
             let iterations = iterations - already_computed;
@@ -300,10 +311,7 @@ async fn job_supervisor(
             name,
             frequency_map: HashMap::new(),
         });
-        let map = entry
-            .frequency_map
-            .entry(ports)
-            .or_insert(HashMap::new());
+        let map = entry.frequency_map.entry(ports).or_insert(HashMap::new());
         for (time, freq) in frequencies {
             *map.entry(time).or_insert(0) += freq
         }
@@ -322,12 +330,14 @@ async fn worker(
     let mut stdout = child.stdout.take().unwrap();
     let mut current_handle_index = 1;
     let mut handles: HashMap<usize, ProgressBar> = HashMap::new();
-    
+
     loop {
         let Some(job) = ({
             let mut lock = jobs.lock().await;
             lock.pop()
-        }) else { break };
+        }) else {
+            break;
+        };
 
         stdin
             .send(S2CMessage::Job {

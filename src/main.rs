@@ -1,20 +1,20 @@
-use clap::{Parser, Subcommand};
-use std::env;
 use crate::checkpoint_cli::main_checkpoint_cli;
 use crate::client::main_child;
 use crate::server::main_server;
+use clap::{Parser, Subcommand};
+use std::env;
 
+mod checkpoint;
+mod checkpoint_cli;
 mod client;
 mod server;
 mod structs;
-mod checkpoint;
-mod checkpoint_cli;
 
 #[derive(Parser, Debug)]
 #[command(about = "Overengineered test runner")]
 struct Args {
     #[command(subcommand)]
-    command: Command
+    command: Command,
 }
 
 #[derive(Debug, Subcommand)]
@@ -44,12 +44,12 @@ enum Command {
         /// Files to run
         files: Vec<String>,
     },
-    
+
     /// Work with checkpoint files.
     Checkpoint {
         #[command(subcommand)]
-        command: checkpoint_cli::Command
-    }
+        command: checkpoint_cli::Command,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -59,7 +59,14 @@ fn main() -> anyhow::Result<()> {
     }
 
     match Args::parse().command {
-        Command::Run { workers, iterations, ports, batch_size, checkpoint_file, files} => {
+        Command::Run {
+            workers,
+            iterations,
+            ports,
+            batch_size,
+            checkpoint_file,
+            files,
+        } => {
             let workers = workers.or(Some(num_cpus::get())).unwrap();
             let batch_size = batch_size
                 .or(Some((1f64 / ports as f64 / 100f64).ceil() as usize))
@@ -75,7 +82,7 @@ fn main() -> anyhow::Result<()> {
                 &*arg_name[0],
             )
         }
-        
-        Command::Checkpoint { command } => main_checkpoint_cli(command)
+
+        Command::Checkpoint { command } => main_checkpoint_cli(command),
     }
 }

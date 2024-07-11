@@ -1,9 +1,9 @@
-use std::time::{Duration, SystemTime};
-use clap::Subcommand;
-use console::{style, Term};
-use time::{Date, OffsetDateTime, PrimitiveDateTime, UtcOffset};
-use time::macros::format_description;
 use crate::checkpoint::Checkpoint;
+use clap::Subcommand;
+use console::style;
+use std::time::{Duration, SystemTime};
+use time::macros::format_description;
+use time::{OffsetDateTime, UtcOffset};
 
 #[derive(Debug, Subcommand, Clone)]
 pub(crate) enum Command {
@@ -12,28 +12,32 @@ pub(crate) enum Command {
         file2: String,
 
         #[arg(short = 'o')]
-        output: String
+        output: String,
     },
 
     Dump {
         file: String,
 
         #[arg(short = 'o')]
-        output: String
+        output: String,
     },
 
     InternalDump {
-        file: String
+        file: String,
     },
 
     Summary {
-        file: String
-    }
+        file: String,
+    },
 }
 
 pub fn main_checkpoint_cli(command: Command) -> anyhow::Result<()> {
     match command {
-        Command::Merge { file1, file2, output } => {
+        Command::Merge {
+            file1,
+            file2,
+            output,
+        } => {
             let mut checkpoint1 = Checkpoint::read(file1)?;
             let checkpoint2 = Checkpoint::read(file2)?;
 
@@ -45,7 +49,7 @@ pub fn main_checkpoint_cli(command: Command) -> anyhow::Result<()> {
                                 *freq_map1.entry(swaps).or_insert(0) += frequency;
                             }
                         } else {
-                            entry1.frequency_map.insert(iterations,  freq_map2);
+                            entry1.frequency_map.insert(iterations, freq_map2);
                         }
                     }
                 } else {
@@ -64,31 +68,44 @@ pub fn main_checkpoint_cli(command: Command) -> anyhow::Result<()> {
             let checkpoint = Checkpoint::read(file.clone())?;
             let creation_time = (OffsetDateTime::UNIX_EPOCH + Duration::from_secs(checkpoint.time))
                 .to_offset(UtcOffset::current_local_offset()?)
-                .format(format_description!("[weekday repr:short] [day] [month repr:long] [year repr:full] [hour]:[minute]"))?;
+                .format(format_description!(
+                    "[weekday repr:short] [day] [month repr:long] [year repr:full] [hour]:[minute]"
+                ))?;
 
-            println!("{}", style(format!("Checkpoint file {file} created at {creation_time}:")).bold());
+            println!(
+                "{}",
+                style(format!(
+                    "Checkpoint file {file} created at {creation_time}:"
+                ))
+                .bold()
+            );
 
             for (hash, alg) in checkpoint.algorithms {
-                let iterations_computed = alg.frequency_map
+                let iterations_computed = alg
+                    .frequency_map
                     .iter()
                     .map(|(n, items)| {
-                        let total_runs = items.values()
-                            .fold(0, |acc, cur| acc + cur);
-                        let average = items.iter()
+                        let total_runs = items.values().fold(0, |acc, cur| acc + cur);
+                        let average = items
+                            .iter()
                             .fold(0f64, |acc, (swaps, freq)| acc + (swaps * freq) as f64)
                             / total_runs as f64;
-                        
+
                         format!("{n} ({total_runs} runs, avg. swaps {average:.3})")
                     })
                     .collect::<Vec<String>>()
                     .join(", ");
-                
-                println!("    ┗  {} {}:", style(alg.name).bold().green(), style(hex::encode(&hash)[..8].to_string()).dim());
+
+                println!(
+                    "    ┗  {} {}:",
+                    style(alg.name).bold().green(),
+                    style(hex::encode(&hash)[..8].to_string()).dim()
+                );
                 println!("       Port counts computed: {}", iterations_computed);
             }
         }
 
-        _ => unimplemented!()
+        _ => unimplemented!(),
     }
 
     Ok(())
