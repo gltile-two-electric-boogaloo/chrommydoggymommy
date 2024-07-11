@@ -3,7 +3,7 @@ mod traits;
 use crate::server::traits::{AsyncMessageRecvExt, AsyncMessageSendExt};
 use crate::structs::{C2SMessage, JobResult, S2CMessage};
 use futures_util::future::select_all;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use lazy_static::lazy_static;
 use rkyv::Deserialize;
 use sha2::{Digest, Sha256};
@@ -100,6 +100,7 @@ async fn main_server_async(
 ) -> anyhow::Result<()> {
     let mut tasks = Vec::new();
     let log = Arc::new(MultiProgress::new());
+    log.set_draw_target(ProgressDrawTarget::stdout_with_hz(5));
     let checkpoint: Arc<RwLock<Checkpoint>> =
         Arc::new(RwLock::new(match Checkpoint::read_async(checkpoint_file.clone()).await {
             Ok(checkpoint) => checkpoint,

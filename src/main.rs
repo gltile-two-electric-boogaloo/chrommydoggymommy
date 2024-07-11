@@ -1,7 +1,7 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::env;
 use std::error::Error;
-
+use crate::checkpoint_cli::main_checkpoint_cli;
 use crate::client::main_child;
 use crate::server::main_server;
 
@@ -9,54 +9,74 @@ mod client;
 mod server;
 mod structs;
 mod checkpoint;
+mod checkpoint_cli;
 
 #[derive(Parser, Debug)]
 #[command(about = "Overengineered test runner")]
 struct Args {
-    /// Amount of workers to run (default: CPU cores)
-    #[arg(short = 'n', default_value = None)]
-    workers: Option<usize>,
+    #[command(subcommand)]
+    command: Command
+}
 
-    /// How many times each program will run
-    #[arg(short = 'i')]
-    iterations: usize,
+#[derive(Debug, Subcommand)]
+enum Command {
+    /// Test a program or a set of programs.
+    Run {
+        /// Amount of workers to run (default: CPU cores)
+        #[arg(short = 'n', default_value = None)]
+        workers: Option<usize>,
 
-    /// How many ports
-    #[arg(short = 'p')]
-    ports: usize,
+        /// How many times each program will run
+        #[arg(short = 'i')]
+        iterations: usize,
 
-    /// Batching size (default: based on number of ports)
-    #[arg(short = 'b')]
-    batch_size: Option<usize>,
+        /// How many ports
+        #[arg(short = 'p')]
+        ports: usize,
 
-    /// Checkpoint file
-    #[arg(short = 'c')]
-    checkpoint_file: String,
+        /// Batching size (default: based on number of ports)
+        #[arg(short = 'b')]
+        batch_size: Option<usize>,
 
-    /// Files to run
-    files: Vec<String>,
+        /// Checkpoint file
+        #[arg(short = 'c')]
+        checkpoint_file: String,
+
+        /// Files to run
+        files: Vec<String>,
+    },
+    
+    /// Work with checkpoint files.
+    Checkpoint {
+        #[command(subcommand)]
+        command: checkpoint_cli::Command
+    }
 }
 
 fn main() -> anyhow::Result<()> {
-    let mut arg_name: Vec<String> = env::args().collect();
+    let arg_name: Vec<String> = env::args().collect();
     if arg_name.len() == 2 && arg_name[1].as_str() == "--run-child-process" {
         return main_child();
     }
 
-    let args = Args::parse();
-    let workers = args.workers.or(Some(num_cpus::get())).unwrap();
-    let batch_size = args
-        .batch_size
-        .or(Some((1f64 / args.ports as f64 / 100f64).ceil() as usize))
-        .unwrap();
+    match Args::parse().command {
+        Command::Run { workers, iterations, ports, batch_size, checkpoint_file, files} => {
+            let workers = workers.or(Some(num_cpus::get())).unwrap();
+            let batch_size = batch_size
+                .or(Some((1f64 / ports as f64 / 100f64).ceil() as usize))
+                .unwrap();
 
-    main_server(
-        workers,
-        args.iterations,
-        args.ports,
-        args.files,
-        batch_size,
-        args.checkpoint_file,
-        &*arg_name[0],
-    )
+            main_server(
+                workers,
+                iterations,
+                ports,
+                files,
+                batch_size,
+                checkpoint_file,
+                &*arg_name[0],
+            )
+        }
+        
+        Command::Checkpoint { command } => main_checkpoint_cli(command)
+    }
 }

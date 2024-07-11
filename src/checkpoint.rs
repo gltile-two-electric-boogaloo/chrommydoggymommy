@@ -1,12 +1,11 @@
 use rkyv::{Archive, Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::fs as stdfs;
 use tokio::fs as tokfs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use std::io::{Read, Write};
 use anyhow::bail;
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 
 #[derive(Archive, Deserialize, Serialize, Debug)]
 pub struct CheckpointEntry {
@@ -30,7 +29,7 @@ impl Checkpoint {
 
     pub fn read(path: String) -> anyhow::Result<Checkpoint> {
         let mut file = stdfs::File::open(&*path)?;
-        let version = file.read_u64::<LittleEndian>()?;
+        let version = file.read_u64::<BigEndian>()?;
         if version != Checkpoint::VERSION {
             bail!("version mismatch on checkpoint file {}: expected version {}, got {}", path, Checkpoint::VERSION, version)
         }
@@ -60,7 +59,7 @@ impl Checkpoint {
 
     pub fn write(&self, path: String) -> anyhow::Result<()> {
         let mut file = stdfs::OpenOptions::new().write(true).create(true).open(path)?;
-        file.write_u64::<LittleEndian>(Checkpoint::VERSION)?;
+        file.write_u64::<BigEndian>(Checkpoint::VERSION)?;
         file.write_all(&*rkyv::to_bytes::<_, 256>(self)?)?;
 
         Ok(())
