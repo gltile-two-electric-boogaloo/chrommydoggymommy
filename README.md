@@ -16,7 +16,7 @@ $ chrommydoggymommy --help
 
 Run a program 100 times on 1000 ports:
 ```shell
-$ chrommydoggymommy -i 100 -p 1000 -c chrommy.ckpt programs/program.py
+$ chrommydoggymommy run -i 100 -p 1000 -c chrommy.ckpt programs/program.py
 ... progress output ...
 ⠿ programs/program.py Completed in 107507284 ms     100
 ```
@@ -25,6 +25,12 @@ parallel, the time taken would be 32 ms.
 
 Work with checkpoint files:
 ```sh
+$ chrommydoggymommy checkpoint summary chrommy.ckpt
+Checkpoint file chrommy3.ckpt created at Fri 12 July 2024 00:06:
+    ┗  programs/myamazingalgorithm.py 4a250102:
+       Port counts computed: 1000 (10 runs, avg. swaps 909816.800)
+    ┗  programs/alg2.py 05b6d900:
+       Port counts computed: 1000 (10 runs, avg. swaps 898912.600)
 $ chrommydoggymommy checkpoint merge chrommy.ckpt chrommy2.ckpt
 $ chrommydoggymommy checkpoint dump chrommy.ckpt chrommy.csv
 ```
@@ -44,5 +50,5 @@ If these assumptions cannot be held, undefined behaviour may arise.
 - [x] Produce checkpoint files
 - [ ] Incrementally update checkpoint files
 - [ ] Work with checkpoint files
-  - [ ] Merge checkpoint files
+  - [x] Merge checkpoint files
   - [ ] Dump contents of checkpoint files to CSV files
