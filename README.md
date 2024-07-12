@@ -21,7 +21,8 @@ $ chrommydoggymommy run -i 100 -p 1000 -c chrommy.ckpt programs/program.py
 ⠿ programs/program.py Completed in 107507284 ms     100
 ```
 Note that the time output is the total amount of compute seconds. So, if the program ran four times for 8 ms in
-parallel, the time taken would be 32 ms.
+parallel, the time taken would be 32 ms. However, the program doesn't take into account the time it is not running due
+to OS context switching.
 
 Work with checkpoint files:
 ```sh
